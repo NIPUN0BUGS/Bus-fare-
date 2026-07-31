@@ -13,11 +13,9 @@ COPY services/api/ ./services/api/
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Build shared packages
+# Build shared packages then API
 RUN pnpm --filter @buslanka/shared-types build
 RUN pnpm --filter @buslanka/fare-engine build
-
-# Build API
 RUN pnpm --filter @buslanka/api build
 
 # ── Production stage ──────────────────────────────────────────────────────────
