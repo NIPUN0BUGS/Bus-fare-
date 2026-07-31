@@ -1,0 +1,43 @@
+# ── Build stage ──────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+ARG APP=web
+ARG PORT=3000
+
+RUN npm install -g pnpm@9
+
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY packages/ ./packages/
+COPY apps/${APP}/ ./apps/${APP}/
+
+RUN pnpm install --frozen-lockfile
+
+RUN pnpm --filter @buslanka/shared-types build
+RUN pnpm --filter @buslanka/ui build 2>/dev/null || true
+RUN pnpm --filter @buslanka/${APP} build
+
+# ── Production stage ──────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+ARG APP=web
+ARG PORT=3000
+
+RUN npm install -g pnpm@9
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=${PORT}
+
+COPY --from=builder /app/apps/${APP}/.next/standalone ./
+COPY --from=builder /app/apps/${APP}/.next/static ./apps/${APP}/.next/static
+COPY --from=builder /app/apps/${APP}/public ./apps/${APP}/public 2>/dev/null || true
+
+EXPOSE ${PORT}
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD wget -qO- http://localhost:${PORT}/api/health || exit 1
+
+CMD ["node", "apps/${APP}/server.js"]

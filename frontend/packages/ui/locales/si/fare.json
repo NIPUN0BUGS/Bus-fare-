@@ -1,0 +1,38 @@
+{
+  "fare": {
+    "title": "ගාස්තු",
+    "breakdown": "ගාස්තු විස්තරය",
+    "total": "මුළු ගාස්තු",
+    "perLeg": "ගමන් කොටස {{number}} ගාස්තු",
+    "currency": "LKR",
+    "status": {
+      "CONFIRMED": "නිල ගාස්තු",
+      "NTC_OFFICIAL": "NTC අනුමත",
+      "OPERATOR": "ක්‍රියාකරු ගාස්තු",
+      "ESTIMATED": "ඇස්තමේන්තු",
+      "UNAVAILABLE": "නොලැබේ"
+    },
+    "estimatedDisclaimer": "මෙය ඇස්තමේන්තු ගාස්තුවකි. ක්‍රියාකරු විසින් තහවුරු කර නොමැත. කරුණාකර රථයට ගොඩ නැගීමට පෙර කොන්දොස්තරවරයාගෙන් නිවැරදි ගාස්තුව තහවුරු කර ගන්න.",
+    "unavailableMessage": "මෙම ගමන සඳහා ගාස්තු දත්ත ලබා ගත නොහැක. කරුණාකර ගොඩ නැගීමට පෙර කොන්දොස්තරවරයාගෙන් ගාස්තුව සොයා ගන්න.",
+    "source": "මූලාශ්‍රය",
+    "effectiveFrom": "{{date}} සිට ක්‍රියාත්මක",
+    "lastUpdated": "{{datetime}} ට යාවත්කාලීන කළා",
+    "passengerType": {
+      "ADULT": "වැඩිහිටි",
+      "CHILD": "ළමා (වයස 12 ට අඩු)",
+      "STUDENT": "සිසු",
+      "SENIOR": "වැඩිහිටි (60+)",
+      "CONCESSION": "සහන"
+    },
+    "busCategory": {
+      "ORDINARY": "සාමාන්‍ය",
+      "SEMI_LUXURY": "අර්ධ සුඛෝපභෝගී",
+      "LUXURY": "සුඛෝපභෝගී",
+      "EXPRESSWAY": "අධිවේගී",
+      "AC": "ශීතකරණ",
+      "SCHOOL": "පාසල්",
+      "SPECIAL": "විශේෂ",
+      "EXPRESS": "ද්‍රුත"
+    }
+  }
+}

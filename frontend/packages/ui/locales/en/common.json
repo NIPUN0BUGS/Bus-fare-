@@ -1,0 +1,47 @@
+{
+  "app": {
+    "name": "BusLanka",
+    "tagline": "Your journey, your way."
+  },
+  "nav": {
+    "search": "Search",
+    "nearby": "Nearby Stops",
+    "saved": "Saved Routes",
+    "bookings": "My Bookings",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "help": "Help"
+  },
+  "action": {
+    "search": "Search",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "close": "Close",
+    "save": "Save",
+    "share": "Share",
+    "retry": "Try Again",
+    "viewMap": "View on Map",
+    "viewList": "View as List",
+    "seeAll": "See all",
+    "bookSeat": "Book Seat",
+    "buyTicket": "Buy Ticket",
+    "download": "Download"
+  },
+  "status": {
+    "loading": "Loading...",
+    "offline": "You're offline. Showing saved routes and last known data.",
+    "error": "Something went wrong. Please try again.",
+    "success": "Done"
+  },
+  "language": {
+    "en": "English",
+    "si": "සිංහල",
+    "ta": "தமிழ்",
+    "change": "Change Language"
+  },
+  "currency": {
+    "code": "LKR",
+    "format": "LKR {{amount}}"
+  }
+}

@@ -1,0 +1,177 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  # ── Lint and type check ──────────────────────────────────────────────────
+  quality:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: |
+          pnpm --filter @buslanka/shared-types build
+          pnpm --filter @buslanka/fare-engine build
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+  # ── Tests ────────────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4-alpine
+        env:
+          POSTGRES_DB: buslanka_test
+          POSTGRES_USER: buslanka
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: |
+          pnpm --filter @buslanka/shared-types build
+          pnpm --filter @buslanka/fare-engine build
+
+      - name: Run fare engine tests
+        run: pnpm --filter @buslanka/fare-engine test:coverage
+
+      - name: Run API tests
+        run: pnpm --filter @buslanka/api test:coverage
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_NAME: buslanka_test
+          DATABASE_USER: buslanka
+          DATABASE_PASSWORD: test_password
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY_TEST }}
+          JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY_TEST }}
+          NODE_ENV: test
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: |
+            packages/fare-engine/coverage/
+            services/api/coverage/
+
+  # ── Build ────────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages and apps
+        run: pnpm build
+
+  # ── Docker build (on main only) ──────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/Dockerfile.api
+          push: false
+          tags: buslanka/api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          build-args: |
+            APP=web
+            PORT=3000
+          push: false
+          tags: buslanka/web:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

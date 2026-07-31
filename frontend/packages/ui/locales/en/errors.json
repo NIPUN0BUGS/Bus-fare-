@@ -1,0 +1,74 @@
+{
+  "errors": {
+    "NO_ROUTES_FOUND": {
+      "title": "No routes found",
+      "message": "We couldn't find a bus route between these locations.",
+      "action": "Try a different stop or adjust your search."
+    },
+    "FARE_UNAVAILABLE": {
+      "title": "Fare unavailable",
+      "message": "Fare data is not available for this journey.",
+      "action": "Please confirm the fare with the conductor before boarding."
+    },
+    "LIVE_DATA_UNAVAILABLE": {
+      "title": "Live data unavailable",
+      "message": "Real-time bus location is currently unavailable.",
+      "action": "Schedule-based times are shown instead."
+    },
+    "OPERATOR_OFFLINE": {
+      "title": "Operator system offline",
+      "message": "The bus operator's system is temporarily unavailable.",
+      "action": "We'll restore live data when the connection is restored."
+    },
+    "PAYMENT_FAILED": {
+      "title": "Payment unsuccessful",
+      "message": "Your payment could not be processed.",
+      "action": "Please check your card details and try again, or use a different payment method."
+    },
+    "BOOKING_EXPIRED": {
+      "title": "Booking expired",
+      "message": "Your seat hold has expired.",
+      "action": "Please restart your booking to select a new seat."
+    },
+    "BUS_CANCELLED": {
+      "title": "Service cancelled",
+      "message": "This bus service has been cancelled.",
+      "action": "Please search for an alternative route."
+    },
+    "GPS_PERMISSION_DENIED": {
+      "title": "Location access denied",
+      "message": "BusLanka needs your location to find nearby stops.",
+      "action": "Enable location access in your device settings, or search by stop name."
+    },
+    "OFFLINE": {
+      "title": "No internet connection",
+      "message": "You're offline. Some features are unavailable.",
+      "action": "Saved routes and active tickets are available offline."
+    },
+    "TICKET_INVALID": {
+      "title": "Invalid ticket",
+      "message": "This ticket could not be verified.",
+      "action": "Please contact the conductor or visit the help desk."
+    },
+    "TICKET_EXPIRED": {
+      "title": "Ticket expired",
+      "message": "This ticket is no longer valid.",
+      "action": "Please purchase a new ticket."
+    },
+    "SERVER_ERROR": {
+      "title": "Server error",
+      "message": "An unexpected error occurred.",
+      "action": "Please try again in a moment. If the problem persists, contact support."
+    },
+    "ORIGIN_NOT_FOUND": {
+      "title": "Origin not recognised",
+      "message": "We couldn't find that starting location.",
+      "action": "Try a different spelling or select from the map."
+    },
+    "DESTINATION_NOT_FOUND": {
+      "title": "Destination not recognised",
+      "message": "We couldn't find that destination.",
+      "action": "Try a different spelling or select from the map."
+    }
+  }
+}

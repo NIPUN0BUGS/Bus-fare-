@@ -1,0 +1,6 @@
+{
+  "name": "@buslanka/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BusLanka frontend — Next.js web app, admin portal, operator portal, and shared UI package"
+}

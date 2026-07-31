@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: theme('colors.primary.500');
+    --color-accent: theme('colors.accent.500');
+  }
+
+  /* Sinhala text rendering */
+  [lang="si"], .font-sinhala {
+    font-family: 'Noto Sans Sinhala', 'Noto Sans', sans-serif;
+  }
+
+  /* Tamil text rendering */
+  [lang="ta"], .font-tamil {
+    font-family: 'Noto Sans Tamil', 'Noto Sans', sans-serif;
+  }
+
+  /* Minimum touch targets */
+  button, a, [role="button"] {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Focus ring */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary-500;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .fare-confirmed {
+    @apply text-success font-semibold;
+  }
+  .fare-estimated {
+    @apply text-warning font-medium;
+  }
+  .fare-unavailable {
+    @apply text-danger font-medium;
+  }
+  .skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+  }
+  .card {
+    @apply bg-white rounded-lg shadow-card p-4;
+  }
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-semibold
+           px-6 py-3 rounded-lg transition-colors min-h-[48px]
+           focus-visible:outline-primary-500;
+  }
+  .btn-secondary {
+    @apply border border-primary-500 text-primary-600 hover:bg-primary-50
+           font-semibold px-6 py-3 rounded-lg transition-colors min-h-[48px];
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "@buslanka/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BusLanka backend — NestJS API and fare calculation engine"
+}

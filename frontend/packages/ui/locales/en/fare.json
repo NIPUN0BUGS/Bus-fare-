@@ -1,0 +1,40 @@
+{
+  "fare": {
+    "title": "Fare",
+    "breakdown": "Fare Breakdown",
+    "total": "Total Fare",
+    "perLeg": "Leg {{number}} fare",
+    "currency": "LKR",
+    "status": {
+      "CONFIRMED": "Official fare",
+      "NTC_OFFICIAL": "NTC Approved",
+      "OPERATOR": "Operator fare",
+      "ESTIMATED": "Estimated",
+      "UNAVAILABLE": "Unavailable"
+    },
+    "estimatedDisclaimer": "This is an estimated fare and has not been confirmed by the operator. Please confirm the exact amount with the conductor.",
+    "unavailableMessage": "Fare data is not available for this journey. Please confirm the fare with the conductor before boarding.",
+    "partialMessage": "Fare for some legs is unavailable. Total shown is partial — confirm the remaining amount with the conductor.",
+    "source": "Source",
+    "effectiveFrom": "Effective from {{date}}",
+    "lastUpdated": "Last updated {{datetime}}",
+    "passengerType": {
+      "ADULT": "Adult",
+      "CHILD": "Child (under 12)",
+      "STUDENT": "Student",
+      "SENIOR": "Senior (60+)",
+      "CONCESSION": "Concession"
+    },
+    "busCategory": {
+      "ORDINARY": "Ordinary",
+      "SEMI_LUXURY": "Semi-Luxury",
+      "LUXURY": "Luxury",
+      "EXPRESSWAY": "Expressway",
+      "AC": "Air-Conditioned",
+      "SCHOOL": "School",
+      "SPECIAL": "Special",
+      "EXPRESS": "Express"
+    },
+    "stage": "Stage {{from}} → {{to}}"
+  }
+}

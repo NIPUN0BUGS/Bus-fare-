@@ -1,0 +1,30 @@
+{
+  "tracking": {
+    "title": "Live Tracking",
+    "available": "Live tracking available",
+    "unavailable": "Live tracking is currently unavailable. Schedule-based estimates are being shown.",
+    "unavailableReason": {
+      "OPERATOR_GPS_OFFLINE": "The operator's GPS system is temporarily offline.",
+      "NO_ACTIVE_TRIP": "No active trip found for this service.",
+      "DEFAULT": "Live location data is currently unavailable."
+    },
+    "lastUpdated": "Updated {{time}}",
+    "nextStop": "Next stop: {{stop}}",
+    "eta": "Arriving in ~{{minutes}} min",
+    "etaExact": "ETA {{time}}",
+    "occupancy": {
+      "label": "Occupancy",
+      "EMPTY": "Empty",
+      "LOW": "Plenty of space",
+      "MEDIUM": "Getting busy",
+      "HIGH": "Very busy",
+      "FULL": "Full"
+    },
+    "alerts": {
+      "delay": "Delayed ~{{minutes}} min",
+      "cancelled": "This service has been cancelled",
+      "breakdown": "Bus has broken down — service suspended",
+      "diversion": "Route diversion in effect"
+    }
+  }
+}

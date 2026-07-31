@@ -1,0 +1,47 @@
+{
+  "search": {
+    "from": {
+      "label": "From",
+      "placeholder": "Origin — place, stop or landmark",
+      "useLocation": "Use my current location"
+    },
+    "to": {
+      "label": "To",
+      "placeholder": "Destination — place, stop or landmark"
+    },
+    "date": "Travel Date",
+    "time": "Departure Time",
+    "passengerType": "Passenger Type",
+    "button": "Search Buses",
+    "swap": "Swap origin and destination"
+  },
+  "results": {
+    "title": "{{count}} journey found",
+    "title_other": "{{count}} journeys found",
+    "sortBy": "Sort by",
+    "sortOptions": {
+      "DEPARTURE": "Earliest departure",
+      "FARE": "Lowest fare",
+      "DURATION": "Fastest journey",
+      "TRANSFERS": "Fewest transfers"
+    },
+    "filter": "Filter",
+    "noRoutesFound": {
+      "title": "No routes found",
+      "message": "We couldn't find a direct bus between these stops. Try a nearby stop or check for transfers.",
+      "suggestions": "Suggestions"
+    },
+    "transfer_one": "{{count}} transfer",
+    "transfer_other": "{{count}} transfers",
+    "direct": "Direct",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} mins"
+  },
+  "autocomplete": {
+    "busStop": "Bus Stop",
+    "place": "Place",
+    "landmark": "Landmark",
+    "noResults": "No matching places found",
+    "searching": "Searching..."
+  }
+}
