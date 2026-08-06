@@ -4,7 +4,8 @@
       "PowerShell(Copy-Item \"e:\\\\buus fare\\\\tsconfig.base.json\" \"E:\\\\buslanka-backend\\\\tsconfig.base.json\")",
       "PowerShell(Copy-Item \"e:\\\\buus fare\\\\tsconfig.base.json\" \"E:\\\\buslanka-frontend\\\\tsconfig.base.json\")",
       "PowerShell(winget install --id GitHub.cli --silent --accept-package-agreements --accept-source-agreements 2>&1)",
-      "PowerShell(Get-Content \"C:\\\\Users\\\\TECHST~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\e--buus-fare\\\\4e862d80-7105-4b8f-a3ac-b0cd48f3106e\\\\tasks\\\\b8sxg575f.output\" -Wait -Tail 20)"
+      "PowerShell(Get-Content \"C:\\\\Users\\\\TECHST~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\e--buus-fare\\\\4e862d80-7105-4b8f-a3ac-b0cd48f3106e\\\\tasks\\\\b8sxg575f.output\" -Wait -Tail 20)",
+      "PowerShell(pnpm --version 2>&1)"
     ],
     "additionalDirectories": [
       "E:\\buslanka-frontend"
