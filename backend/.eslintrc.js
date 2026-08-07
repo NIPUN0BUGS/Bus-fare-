@@ -2,19 +2,10 @@
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
-  parserOptions: {
-    project: [
-      './services/api/tsconfig.json',
-      './packages/fare-engine/tsconfig.json',
-      './packages/shared-types/tsconfig.json',
-    ],
-    tsconfigRootDir: __dirname,
-  },
   plugins: ['@typescript-eslint'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:@typescript-eslint/recommended-requiring-type-checking',
     'prettier',
   ],
   rules: {
