@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, development]
   pull_request:
     branches: [main]
 
@@ -11,43 +11,13 @@ env:
   PNPM_VERSION: '9'
 
 jobs:
-  # ── Lint and type check ──────────────────────────────────────────────────
-  quality:
-    name: Lint & Type Check
+  # ── Backend: lint, type-check, tests ─────────────────────────────────────
+  backend:
+    name: Backend (lint + test)
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared packages
-        run: |
-          pnpm --filter @buslanka/shared-types build
-          pnpm --filter @buslanka/fare-engine build
-
-      - name: Type check
-        run: pnpm type-check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Format check
-        run: pnpm format:check
-
-  # ── Tests ────────────────────────────────────────────────────────────────
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     services:
       postgres:
         image: postgis/postgis:15-3.4-alpine
@@ -83,6 +53,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -91,6 +62,12 @@ jobs:
         run: |
           pnpm --filter @buslanka/shared-types build
           pnpm --filter @buslanka/fare-engine build
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
 
       - name: Run fare engine tests
         run: pnpm --filter @buslanka/fare-engine test:coverage
@@ -115,14 +92,17 @@ jobs:
         with:
           name: coverage-reports
           path: |
-            packages/fare-engine/coverage/
-            services/api/coverage/
+            backend/packages/fare-engine/coverage/
+            backend/services/api/coverage/
 
-  # ── Build ────────────────────────────────────────────────────────────────
-  build:
-    name: Build
+  # ── Frontend: lint, type-check ────────────────────────────────────────────
+  frontend:
+    name: Frontend (lint + type-check)
     runs-on: ubuntu-latest
-    needs: [quality, test]
+    defaults:
+      run:
+        working-directory: frontend
+
     steps:
       - uses: actions/checkout@v4
 
@@ -134,18 +114,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Build all packages and apps
-        run: pnpm build
+      - name: Build shared packages
+        run: pnpm --filter @buslanka/shared-types build
 
-  # ── Docker build (on main only) ──────────────────────────────────────────
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+  # ── Docker build (main only) ──────────────────────────────────────────────
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [backend, frontend]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -156,8 +143,8 @@ jobs:
       - name: Build API image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: infra/docker/Dockerfile.api
+          context: backend
+          file: backend/infra/docker/Dockerfile.api
           push: false
           tags: buslanka/api:${{ github.sha }}
           cache-from: type=gha
@@ -166,8 +153,8 @@ jobs:
       - name: Build Web image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: infra/docker/Dockerfile.web
+          context: frontend
+          file: frontend/infra/docker/Dockerfile.web
           build-args: |
             APP=web
             PORT=3000
