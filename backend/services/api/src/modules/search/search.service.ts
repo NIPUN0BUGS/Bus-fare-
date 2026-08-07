@@ -126,7 +126,6 @@ export class SearchService {
   async autocomplete(q: string, locale: string, lat?: number, lng?: number) {
     if (q.length < 2) return { suggestions: [] };
 
-    const field = locale === 'si' ? 'name_si' : locale === 'ta' ? 'name_ta' : 'name';
     const results = await this.stopRepo.query(
       `SELECT id, stop_code, name, name_si, name_ta, lat, lng
        FROM bus_stops

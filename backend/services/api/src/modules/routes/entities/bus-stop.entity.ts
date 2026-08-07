@@ -1,6 +1,6 @@
 import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
-  UpdateDateColumn, DeleteDateColumn, Index,
+  UpdateDateColumn, DeleteDateColumn,
 } from 'typeorm';
 import { StopStatus } from '@buslanka/shared-types';
 
