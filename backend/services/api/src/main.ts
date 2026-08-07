@@ -5,7 +5,6 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import compression from 'compression';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { brand } from '@buslanka/ui/tokens/brand';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -39,7 +38,7 @@ async function bootstrap() {
   // OpenAPI documentation (non-production)
   if (process.env['NODE_ENV'] !== 'production') {
     const config = new DocumentBuilder()
-      .setTitle(`${brand.productName} API`)
+      .setTitle('BusLanka API')
       .setDescription('Bus fare and journey planning API for Sri Lanka')
       .setVersion('1.0')
       .addBearerAuth()

@@ -120,6 +120,9 @@ importers:
       compression:
         specifier: ^1.7.4
         version: 1.8.1
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
       express-rate-limit:
         specifier: ^7.2.0
         version: 7.5.1(express@4.22.1)
@@ -156,6 +159,9 @@ importers:
       sharp:
         specifier: ^0.33.3
         version: 0.33.5
+      socket.io:
+        specifier: ^4.7.5
+        version: 4.8.1
       typeorm:
         specifier: ^0.3.20
         version: 0.3.31(ioredis@5.11.1)(pg@8.22.0)(redis@4.7.1)(ts-node@10.9.2(@types/node@26.1.2)(typescript@5.9.3))

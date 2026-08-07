@@ -52,7 +52,9 @@
     "sharp": "^0.33.3",
     "winston": "^3.13.0",
     "@nestjs/terminus": "^10.2.3",
-    "nodemailer": "^6.9.14"
+    "nodemailer": "^6.9.14",
+    "dotenv": "^16.4.5",
+    "socket.io": "^4.7.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",

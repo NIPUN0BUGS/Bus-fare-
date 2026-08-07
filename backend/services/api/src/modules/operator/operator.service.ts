@@ -5,6 +5,7 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import * as crypto from 'crypto';
 import { OperatorEntity } from './entities/operator.entity';
+import { OperatorStatus } from '@buslanka/shared-types';
 
 @Injectable()
 export class OperatorService {
@@ -63,7 +64,7 @@ export class OperatorService {
     void keyHash;
 
     const operator = await this.operatorRepo.findOne({
-      where: { status: 'ACTIVE' as const },
+      where: { status: OperatorStatus.ACTIVE },
     });
 
     if (!operator) throw new UnauthorizedException('Invalid or revoked API key.');
