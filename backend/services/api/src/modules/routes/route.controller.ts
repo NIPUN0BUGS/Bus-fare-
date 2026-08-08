@@ -14,8 +14,14 @@ export class RouteController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get route with stops' })
+  @ApiOperation({ summary: 'Get route details' })
   findOne(@Param('id') id: string) {
     return this.routeService.findOne(id);
+  }
+
+  @Get(':id/stops')
+  @ApiOperation({ summary: 'Get ordered stop list for a route' })
+  getRouteStops(@Param('id') id: string) {
+    return this.routeService.getRouteStops(id);
   }
 }

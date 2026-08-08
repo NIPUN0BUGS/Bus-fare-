@@ -35,6 +35,36 @@ export class RouteService {
     return route;
   }
 
+  async getRouteStops(routeId: string) {
+    const rows = await this.stopRepo.query(
+      `SELECT bs.id, bs.stop_code, bs.name, bs.name_si, bs.name_ta, bs.lat, bs.lng,
+              rs.sequence, rs.fare_stage_number, rs.direction
+       FROM route_stops rs
+       JOIN bus_stops bs ON bs.id = rs.stop_id
+       WHERE rs.route_id = $1
+         AND bs.deleted_at IS NULL
+         AND bs.status = 'ACTIVE'
+       ORDER BY rs.direction, rs.sequence`,
+      [routeId],
+    ) as Array<{
+      id: string; stop_code: string | null; name: string; name_si: string | null; name_ta: string | null;
+      lat: number; lng: number; sequence: number; fare_stage_number: number | null; direction: string;
+    }>;
+
+    return rows.map((r) => ({
+      id: r.id,
+      stopCode: r.stop_code,
+      name: r.name,
+      nameSi: r.name_si,
+      nameTa: r.name_ta,
+      lat: r.lat,
+      lng: r.lng,
+      sequence: r.sequence,
+      fareStageNumber: r.fare_stage_number,
+      direction: r.direction,
+    }));
+  }
+
   async findNearbyStops(lat: number, lng: number, radiusMeters: number, page: number, perPage: number) {
     const offset = (page - 1) * perPage;
     const rows = await this.stopRepo.query(

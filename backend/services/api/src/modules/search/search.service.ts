@@ -105,6 +105,7 @@ export class SearchService {
           transfers: 0,
           legs: [{
             legIndex: 1,
+            routeId: r.id,
             routeNumber: r.route_number,
             routeName: r.name,
             operator: { id: r.operator_id, name: '' },

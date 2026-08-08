@@ -8,6 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/v1';
 interface Stop { id: string; name: string; nameSi?: string | null; lat: number; lng: number; code?: string | null }
 interface Leg {
   legIndex: number;
+  routeId: string;
   routeNumber: string;
   routeName: string;
   busCategory: string;
@@ -23,6 +24,22 @@ async function fetchJourneys(params: URLSearchParams): Promise<SearchResult> {
   const res = await fetch(`${API}/search/journey?${params.toString()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Search failed');
   return res.json() as Promise<SearchResult>;
+}
+
+function trackUrl(leg: Leg): string {
+  const p = new URLSearchParams({
+    routeNumber: leg.routeNumber,
+    routeName: leg.routeName,
+    fromStopId: leg.fromStop.id,
+    fromName: leg.fromStop.name,
+    fromLat: String(leg.fromStop.lat),
+    fromLng: String(leg.fromStop.lng),
+    toStopId: leg.toStop.id,
+    toName: leg.toStop.name,
+    toLat: String(leg.toStop.lat),
+    toLng: String(leg.toStop.lng),
+  });
+  return `/track/${leg.routeId}?${p.toString()}`;
 }
 
 function JourneyCard({ journey }: { journey: Journey }) {
@@ -69,6 +86,17 @@ function JourneyCard({ journey }: { journey: Journey }) {
         updatedAt={journey.totalFare.updatedAt}
         disclaimer={journey.totalFare.status === FareSourceType.ESTIMATED ? 'Fare is estimated and may vary.' : null}
       />
+
+      {/* Track button */}
+      {leg && (
+        <Link
+          href={trackUrl(leg)}
+          className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-primary-50 text-primary-700 text-sm font-semibold hover:bg-primary-100 transition-colors"
+        >
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          Track this bus
+        </Link>
+      )}
     </div>
   );
 }
