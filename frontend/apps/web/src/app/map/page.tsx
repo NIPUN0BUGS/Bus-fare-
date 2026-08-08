@@ -201,34 +201,58 @@ export default function MapPage() {
     demoStepRef.current = 0;
     setSimRunning(true);
 
+    // Two buses: NC-1234 starts at Gampola, NC-5678 starts midway
+    const ROUTE_594 = 'a1b2c3d4-0000-0000-0000-000000000594';
+
     const tick = async () => {
       const step = demoStepRef.current;
       if (step >= DEMO_PATH.length) {
-        demoStepRef.current = 0; // loop
+        demoStepRef.current = 0;
         return;
       }
       const [lat, lng] = DEMO_PATH[step];
       const next = DEMO_PATH[step + 1];
       let heading: number | undefined;
       if (next) {
-        const dLat = next[0] - lat;
-        const dLng = next[1] - lng;
+        const dLat = next[0] - lat; const dLng = next[1] - lng;
         heading = Math.round((Math.atan2(dLng, dLat) * 180) / Math.PI);
         if (heading < 0) heading += 360;
       }
+      const spd = 35 + Math.random() * 20;
+      const occs: string[] = ['LOW', 'MEDIUM', 'HIGH', 'MEDIUM', 'LOW'];
 
+      // Bus 1: NC-1234 — follows the full path from step 0
       try {
         await fetch(`${API}/tracking/simulate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            vehicleId: 'BUS-001',
-            routeId: 'route-594-kandy',
-            lat,
-            lng,
-            heading,
-            speedKmh: 35 + Math.random() * 20,
-            occupancy: ['LOW', 'MEDIUM', 'HIGH'][step % 3],
+            vehicleId: 'NC-1234', routeId: ROUTE_594,
+            lat, lng, heading, speedKmh: spd,
+            occupancy: occs[step % occs.length],
+          }),
+        });
+      } catch { /* ignore */ }
+
+      // Bus 2: NC-5678 — 5 steps ahead (wraps)
+      const step2 = (step + 5) % DEMO_PATH.length;
+      const [lat2, lng2] = DEMO_PATH[step2];
+      const next2 = DEMO_PATH[step2 + 1];
+      let heading2: number | undefined;
+      if (next2) {
+        const dLat = next2[0] - lat2; const dLng = next2[1] - lng2;
+        heading2 = Math.round((Math.atan2(dLng, dLat) * 180) / Math.PI);
+        if (heading2 < 0) heading2 += 360;
+      }
+      try {
+        await fetch(`${API}/tracking/simulate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vehicleId: 'NC-5678', routeId: ROUTE_594,
+            lat: lat2, lng: lng2, heading: heading2,
+            speedKmh: 40 + Math.random() * 15,
+            occupancy: occs[(step2 + 2) % occs.length],
           }),
         });
       } catch { /* ignore */ }

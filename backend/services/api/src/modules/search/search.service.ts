@@ -169,12 +169,21 @@ export class SearchService {
       return (results[0] as ResolvedStop | undefined) ?? null;
     }
     if (text) {
-      const entity = await this.stopRepo
+      // Try FTS first; fall back to ILIKE for short/partial queries
+      let entity = await this.stopRepo
         .createQueryBuilder('s')
         .where(`to_tsvector('simple', coalesce(s.name,'') || ' ' || coalesce(s.name_si,'') || ' ' || coalesce(s.name_ta,'')) @@ plainto_tsquery('simple', :q)`, { q: text })
         .andWhere(`s.status = 'ACTIVE'`)
         .andWhere('s.deleted_at IS NULL')
         .getOne();
+      if (!entity) {
+        entity = await this.stopRepo
+          .createQueryBuilder('s')
+          .where(`(s.name ILIKE :q OR s.name_si ILIKE :q OR s.name_ta ILIKE :q)`, { q: `%${text}%` })
+          .andWhere(`s.status = 'ACTIVE'`)
+          .andWhere('s.deleted_at IS NULL')
+          .getOne();
+      }
       if (!entity) return null;
       return {
         id: entity.id,

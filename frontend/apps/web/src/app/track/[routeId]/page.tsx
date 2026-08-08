@@ -1,25 +1,26 @@
 'use client';
 
-import { useEffect, useRef, useState, use } from 'react';
+import { useEffect, useRef, useState, use, useCallback } from 'react';
 import Link from 'next/link';
 import { io, Socket } from 'socket.io-client';
 
-const API    = process.env.NEXT_PUBLIC_API_URL  ?? 'http://localhost:3001/v1';
+const API     = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/v1';
 const WS_BASE = API.replace('/v1', '');
 
-// ── Haversine distance in km ────────────────────────────────────────────────
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Project bus onto the from→to segment, return t ∈ [0,1] ─────────────────
-function routeProgress(
+// Project bus lat/lng onto the from→to line segment, returns 0–1
+function segmentProgress(
   busLat: number, busLng: number,
   fromLat: number, fromLng: number,
   toLat: number, toLng: number,
@@ -27,12 +28,11 @@ function routeProgress(
   const vLat = toLat - fromLat, vLng = toLng - fromLng;
   const uLat = busLat - fromLat, uLng = busLng - fromLng;
   const dot = uLat * vLat + uLng * vLng;
-  const len2 = vLat * vLat + vLng * vLng;
+  const len2 = vLat ** 2 + vLng ** 2;
   if (len2 === 0) return 0;
   return Math.min(1, Math.max(0, dot / len2));
 }
 
-// ── Types ───────────────────────────────────────────────────────────────────
 interface RouteStop {
   id: string;
   name: string;
@@ -52,17 +52,204 @@ interface BusState {
   updatedAt: string;
 }
 
-type LiveStatus = 'waiting' | 'live' | 'no-data';
-
-const OCCUPANCY_LABEL: Record<string, string> = {
-  EMPTY: 'Empty', LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', FULL: 'Full',
+const OCC_LABEL: Record<string, string> = {
+  EMPTY: 'Empty', LOW: 'Few seats', MEDIUM: 'Filling up',
+  HIGH: 'Almost full', FULL: 'Full',
 };
-const OCCUPANCY_COLOR: Record<string, string> = {
-  EMPTY: 'text-green-600', LOW: 'text-green-600', MEDIUM: 'text-yellow-600',
-  HIGH: 'text-orange-600', FULL: 'text-red-600',
+const OCC_COLOR: Record<string, { bg: string; text: string }> = {
+  EMPTY:  { bg: 'bg-green-100',  text: 'text-green-700' },
+  LOW:    { bg: 'bg-green-100',  text: 'text-green-700' },
+  MEDIUM: { bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  HIGH:   { bg: 'bg-orange-100', text: 'text-orange-700' },
+  FULL:   { bg: 'bg-red-100',    text: 'text-red-700' },
 };
 
-// ── Page ────────────────────────────────────────────────────────────────────
+function distLabel(km: number) {
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+}
+function etaLabel(km: number, speedKmh?: number | null) {
+  const spd = Math.max(speedKmh ?? 30, 5);
+  const min = Math.round((km / spd) * 60);
+  if (min <= 1) return 'Arriving';
+  return `~${min} min`;
+}
+
+// ── Bus card ─────────────────────────────────────────────────────────────────
+function BusCard({
+  bus, distKm, isNearest, fromLat, fromLng, toLat, toLng, routeStops,
+}: {
+  bus: BusState;
+  distKm: number;
+  isNearest: boolean;
+  fromLat: number; fromLng: number;
+  toLat: number; toLng: number;
+  routeStops: RouteStop[];
+}) {
+  const progress = segmentProgress(bus.lat, bus.lng, fromLat, fromLng, toLat, toLng);
+  const pct = Math.round(progress * 100);
+
+  // Find nearest route stop to bus
+  const nearestStop = routeStops.length > 1
+    ? routeStops.reduce((best, s) => {
+        return haversineKm(bus.lat, bus.lng, s.lat, s.lng) <
+               haversineKm(bus.lat, bus.lng, best.lat, best.lng) ? s : best;
+      })
+    : null;
+
+  const occ = bus.occupancy ? OCC_COLOR[bus.occupancy] : null;
+
+  return (
+    <div className={`bg-white rounded-2xl shadow-card overflow-hidden transition-all ${
+      isNearest ? 'ring-2 ring-primary-400' : ''
+    }`}>
+      {/* Plate + status row */}
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+        {/* Number plate */}
+        <div className="flex-shrink-0">
+          <div className="bg-gray-900 text-white font-mono font-bold text-sm px-3 py-1.5 rounded-lg tracking-wider border-2 border-yellow-400">
+            {bus.vehicleId}
+          </div>
+          {isNearest && (
+            <p className="text-[10px] text-primary-500 font-semibold text-center mt-1">NEAREST</p>
+          )}
+        </div>
+
+        {/* Right side */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-bold text-gray-900">{etaLabel(distKm, bus.speedKmh)}</p>
+            {occ && (
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${occ.bg} ${occ.text}`}>
+                {OCC_LABEL[bus.occupancy!] ?? bus.occupancy}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-500">
+            {distLabel(distKm)} away
+            {bus.speedKmh ? ` · ${Math.round(bus.speedKmh)} km/h` : ''}
+          </p>
+          {nearestStop && (
+            <p className="text-xs text-gray-400 mt-0.5 truncate">
+              Near: {nearestStop.name}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="px-4 pb-4">
+        <div className="relative h-2 bg-gray-100 rounded-full">
+          <div
+            className="absolute inset-y-0 left-0 bg-primary-400 rounded-full transition-all duration-700"
+            style={{ width: `${pct}%` }}
+          />
+          <div
+            className="absolute -top-[3px] w-[18px] h-[18px] rounded-full bg-primary-600 border-2 border-white shadow flex items-center justify-center text-[9px] transition-all duration-700"
+            style={{ left: `calc(${pct}% - 9px)` }}
+          >
+            🚌
+          </div>
+        </div>
+        <div className="flex justify-between text-[10px] text-gray-400 mt-1.5">
+          <span>Your stop</span>
+          <span>Destination</span>
+        </div>
+      </div>
+
+      <p className="text-[10px] text-gray-300 text-right px-4 pb-2">
+        {new Date(bus.updatedAt).toLocaleTimeString()}
+      </p>
+    </div>
+  );
+}
+
+// ── Stop timeline ─────────────────────────────────────────────────────────────
+function StopTimeline({
+  stops, fromName, toName, buses,
+}: {
+  stops: RouteStop[];
+  fromName: string;
+  toName: string;
+  buses: BusState[];
+}) {
+  if (stops.length === 0) return null;
+
+  // Which stop index is each bus closest to?
+  const busStopIndexes = buses.map((bus) =>
+    stops.reduce((best, stop, i) => {
+      const d = haversineKm(bus.lat, bus.lng, stop.lat, stop.lng);
+      const bd = haversineKm(bus.lat, bus.lng, stops[best].lat, stops[best].lng);
+      return d < bd ? i : best;
+    }, 0),
+  );
+
+  return (
+    <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-50">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Route Stops</p>
+      </div>
+      <div className="px-4 py-2">
+        {stops.map((stop, i) => {
+          const isFirst   = i === 0;
+          const isLast    = i === stops.length - 1;
+          const isFrom    = stop.name === fromName;
+          const isTo      = stop.name === toName;
+          const busesHere = buses.filter((_, bi) => busStopIndexes[bi] === i);
+
+          return (
+            <div key={stop.id} className="flex gap-3 relative min-h-[44px]">
+              {/* Spine */}
+              <div className="flex flex-col items-center flex-shrink-0 w-5">
+                <div className={`w-3 h-3 rounded-full border-2 mt-3 z-10 flex-shrink-0 ${
+                  isFrom || isTo ? 'border-primary-500 bg-primary-500 scale-110' : 'border-gray-300 bg-white'
+                }`} />
+                {!isLast && <div className="flex-1 w-0.5 bg-gray-200 min-h-[28px]" />}
+              </div>
+
+              {/* Bus dots next to the stop */}
+              {busesHere.length > 0 && (
+                <div className="absolute left-4 top-2.5 flex gap-1 z-20">
+                  {busesHere.map((b) => (
+                    <div
+                      key={b.vehicleId}
+                      title={b.vehicleId}
+                      className="w-5 h-5 bg-primary-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-[9px] animate-bounce"
+                    >
+                      🚌
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Stop label */}
+              <div className={`flex-1 py-2.5 flex items-center justify-between ${!isLast ? 'border-b border-gray-50' : ''}`}>
+                <div>
+                  <p className={`text-sm ${isFrom || isTo ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                    {stop.name}
+                  </p>
+                  {stop.nameSi && (
+                    <p className="text-xs text-gray-400 font-sinhala">{stop.nameSi}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                  {isFrom && <span className="text-[10px] font-semibold text-primary-500 bg-primary-50 px-1.5 py-0.5 rounded-full">Your stop</span>}
+                  {isTo   && <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Destination</span>}
+                  {busesHere.length > 0 && (
+                    <span className="text-[10px] font-semibold text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded-full">
+                      🚌 {busesHere.map(b => b.vehicleId).join(', ')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function TrackPage({
   params,
   searchParams,
@@ -70,110 +257,78 @@ export default function TrackPage({
   params: Promise<{ routeId: string }>;
   searchParams: Promise<Record<string, string>>;
 }) {
-  const { routeId }   = use(params);
-  const sp            = use(searchParams);
+  const { routeId } = use(params);
+  const sp          = use(searchParams);
 
-  const routeNumber   = sp.routeNumber  ?? '';
-  const routeName     = sp.routeName    ?? '';
-  const fromName      = sp.fromName     ?? 'Your stop';
-  const toName        = sp.toName       ?? 'Destination';
-  const fromLat       = parseFloat(sp.fromLat ?? '0');
-  const fromLng       = parseFloat(sp.fromLng ?? '0');
-  const toLat         = parseFloat(sp.toLat   ?? '0');
-  const toLng         = parseFloat(sp.toLng   ?? '0');
+  const routeNumber = sp.routeNumber ?? '';
+  const routeName   = sp.routeName   ?? '';
+  const fromName    = sp.fromName    ?? 'Your stop';
+  const toName      = sp.toName      ?? 'Destination';
+  const fromLat     = parseFloat(sp.fromLat ?? '0');
+  const fromLng     = parseFloat(sp.fromLng ?? '0');
+  const toLat       = parseFloat(sp.toLat   ?? '0');
+  const toLng       = parseFloat(sp.toLng   ?? '0');
 
   const socketRef = useRef<Socket | null>(null);
 
-  const [status, setStatus]     = useState<LiveStatus>('waiting');
-  const [buses, setBuses]       = useState<BusState[]>([]);
+  const [wsStatus, setWsStatus]     = useState<'waiting' | 'live' | 'no-data'>('waiting');
+  const [buses, setBuses]           = useState<Map<string, BusState>>(new Map());
   const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Fetch ordered route stops (optional — graceful empty fallback)
+  // Fetch ordered route stops
   useEffect(() => {
     fetch(`${API}/routes/${routeId}/stops`)
       .then((r) => r.json())
       .then((data: unknown) => {
-        const arr = Array.isArray(data) ? data as RouteStop[] : [];
-        setRouteStops(arr);
+        if (Array.isArray(data)) setRouteStops(data as RouteStop[]);
       })
-      .catch(() => { /* no route stops in DB yet — use from/to only */ });
+      .catch(() => {});
   }, [routeId]);
 
   // WebSocket
+  const handlePosition = useCallback((data: BusState) => {
+    setWsStatus('live');
+    setBuses((prev) => new Map(prev).set(data.vehicleId, data));
+  }, []);
+
   useEffect(() => {
     const socket = io(`${WS_BASE}/v1/ws/tracking`, { transports: ['websocket'] });
     socketRef.current = socket;
 
-    const noDataTimer = setTimeout(() => {
-      setStatus((s) => s === 'waiting' ? 'no-data' : s);
-    }, 6000);
+    const noDataTimer = setTimeout(
+      () => setWsStatus((s) => s === 'waiting' ? 'no-data' : s),
+      6000,
+    );
 
-    socket.on('connect', () => socket.emit('SUBSCRIBE', { routeId }));
-
-    socket.on('VEHICLE_POSITION', (data: BusState) => {
-      clearTimeout(noDataTimer);
-      setStatus('live');
-      setLastUpdate(new Date());
-      setBuses((prev) => {
-        const next = prev.filter((b) => b.vehicleId !== data.vehicleId);
-        return [...next, data];
-      });
-    });
+    socket.on('connect',    () => socket.emit('SUBSCRIBE', { routeId }));
+    socket.on('disconnect', () => setWsStatus((s) => s === 'live' ? 'no-data' : s));
+    socket.on('VEHICLE_POSITION', handlePosition);
 
     return () => {
       clearTimeout(noDataTimer);
       socket.disconnect();
     };
-  }, [routeId]);
+  }, [routeId, handlePosition]);
 
-  // Pick the nearest bus to the user's fromStop
-  const nearestBus = buses.length > 0
-    ? buses.reduce<BusState | null>((closest, b) => {
-        if (!closest) return b;
-        return haversineKm(b.lat, b.lng, fromLat, fromLng) <
-               haversineKm(closest.lat, closest.lng, fromLat, fromLng)
-          ? b : closest;
-      }, null)
-    : null;
+  const busArray = [...buses.values()];
 
-  const progress = nearestBus
-    ? routeProgress(nearestBus.lat, nearestBus.lng, fromLat, fromLng, toLat, toLng)
-    : null;
-
-  const distToFromKm = nearestBus
-    ? haversineKm(nearestBus.lat, nearestBus.lng, fromLat, fromLng)
-    : null;
-
-  const etaMin = distToFromKm !== null && nearestBus
-    ? Math.round((distToFromKm / Math.max(nearestBus.speedKmh ?? 30, 5)) * 60)
-    : null;
-
-  // Build the stop list to display
-  // If we have route stops from DB, use them; otherwise synthesise from→to
-  const displayStops: RouteStop[] = routeStops.length > 0
-    ? routeStops
-    : [
-        { id: 'from', name: fromName, nameSi: null, sequence: 0, lat: fromLat, lng: fromLng },
-        { id: 'to',   name: toName,   nameSi: null, sequence: 99, lat: toLat,  lng: toLng  },
-      ];
-
-  // Which stop index is the bus closest to?
-  const busStopIndex = nearestBus && displayStops.length > 2
-    ? displayStops.reduce<number>((best, stop, i) => {
-        const d = haversineKm(nearestBus.lat, nearestBus.lng, stop.lat, stop.lng);
-        const bestD = haversineKm(nearestBus.lat, nearestBus.lng, displayStops[best].lat, displayStops[best].lng);
-        return d < bestD ? i : best;
-      }, 0)
-    : null;
+  // Sort by distance to fromStop (nearest first)
+  const sorted = [...busArray].sort(
+    (a, b) =>
+      haversineKm(a.lat, a.lng, fromLat, fromLng) -
+      haversineKm(b.lat, b.lng, fromLat, fromLng),
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-primary-700 px-4 pt-10 pb-5 text-white">
-        <Link href="#" onClick={() => history.back()} className="text-primary-200 text-sm flex items-center gap-1 mb-3">
+        <button
+          onClick={() => history.back()}
+          className="text-primary-200 text-sm flex items-center gap-1 mb-3"
+        >
           ← Back
-        </Link>
+        </button>
         <div className="flex items-start justify-between">
           <div>
             {routeNumber && (
@@ -181,193 +336,96 @@ export default function TrackPage({
                 Route {routeNumber}
               </span>
             )}
-            <h1 className="text-lg font-bold mt-1 leading-tight">{routeName || 'Bus Tracker'}</h1>
+            <h1 className="text-lg font-bold mt-1 leading-tight">
+              {routeName || 'Live Tracking'}
+            </h1>
+            <p className="text-primary-200 text-xs mt-0.5">
+              {fromName} → {toName}
+            </p>
           </div>
 
-          {/* Live status badge */}
-          <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-            status === 'live'    ? 'bg-green-500/20 text-green-300' :
-            status === 'no-data' ? 'bg-gray-500/20 text-gray-300'  :
-                                   'bg-yellow-500/20 text-yellow-300'
+          {/* Live badge */}
+          <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${
+            wsStatus === 'live'    ? 'bg-green-500/20 text-green-300' :
+            wsStatus === 'no-data' ? 'bg-gray-500/20 text-gray-300'  :
+                                     'bg-yellow-500/20 text-yellow-300'
           }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${
-              status === 'live'    ? 'bg-green-400 animate-pulse' :
-              status === 'no-data' ? 'bg-gray-400'                :
-                                     'bg-yellow-400 animate-pulse'
+              wsStatus === 'live'    ? 'bg-green-400 animate-pulse' :
+              wsStatus === 'no-data' ? 'bg-gray-400'                :
+                                       'bg-yellow-400 animate-pulse'
             }`} />
-            {status === 'live' ? 'Live' : status === 'no-data' ? 'No signal' : 'Waiting…'}
+            {wsStatus === 'live'
+              ? `${sorted.length} bus${sorted.length !== 1 ? 'es' : ''} live`
+              : wsStatus === 'no-data' ? 'No signal' : 'Connecting…'}
           </div>
         </div>
       </div>
 
       <div className="px-4 py-4 max-w-lg mx-auto space-y-4">
 
-        {/* ── ETA card ─────────────────────────────────────────────────── */}
-        {status === 'live' && nearestBus && (
-          <div className="bg-white rounded-2xl shadow-card p-4">
-            <p className="text-xs text-gray-400 mb-1">Nearest bus to your stop</p>
-            <div className="flex items-end justify-between">
-              <div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {etaMin !== null && etaMin <= 1 ? 'Arriving' : etaMin !== null ? `~${etaMin} min` : '—'}
-                </p>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {distToFromKm !== null
-                    ? distToFromKm < 1
-                      ? `${Math.round(distToFromKm * 1000)} m away`
-                      : `${distToFromKm.toFixed(1)} km away`
-                    : ''}
-                  {nearestBus.speedKmh ? ` · ${Math.round(nearestBus.speedKmh)} km/h` : ''}
-                </p>
-              </div>
-              {nearestBus.occupancy && (
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Occupancy</p>
-                  <p className={`text-sm font-semibold ${OCCUPANCY_COLOR[nearestBus.occupancy] ?? 'text-gray-600'}`}>
-                    {OCCUPANCY_LABEL[nearestBus.occupancy] ?? nearestBus.occupancy}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Progress bar along route */}
-            {progress !== null && (
-              <div className="mt-3">
-                <div className="flex justify-between text-xs text-gray-400 mb-1">
-                  <span>{fromName}</span>
-                  <span>{toName}</span>
-                </div>
-                <div className="relative h-2 bg-gray-100 rounded-full overflow-visible">
-                  <div
-                    className="absolute inset-y-0 left-0 bg-primary-400 rounded-full transition-all duration-700"
-                    style={{ width: `${Math.round(progress * 100)}%` }}
-                  />
-                  {/* Bus marker on bar */}
-                  <div
-                    className="absolute -top-1 w-4 h-4 bg-primary-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-[8px] transition-all duration-700"
-                    style={{ left: `calc(${Math.round(progress * 100)}% - 8px)` }}
-                  >
-                    🚌
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {lastUpdate && (
-              <p className="text-[10px] text-gray-300 mt-2 text-right">
-                Updated {lastUpdate.toLocaleTimeString()}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ── No-data state ─────────────────────────────────────────────── */}
-        {status === 'no-data' && (
+        {/* ── No signal ──────────────────────────────────────────────────── */}
+        {wsStatus === 'no-data' && (
           <div className="bg-white rounded-2xl shadow-card p-5 text-center">
             <p className="text-3xl mb-2">📡</p>
-            <p className="text-gray-700 font-medium">No live bus data</p>
+            <p className="text-gray-700 font-semibold">No live buses on this route</p>
             <p className="text-sm text-gray-400 mt-1">
-              GPS tracking is not yet active on this route.
-              Check back closer to departure time.
+              GPS tracking is not yet active. Check back closer to departure time.
             </p>
           </div>
         )}
 
-        {/* ── Waiting state ─────────────────────────────────────────────── */}
-        {status === 'waiting' && (
+        {/* ── Connecting spinner ─────────────────────────────────────────── */}
+        {wsStatus === 'waiting' && (
           <div className="bg-white rounded-2xl shadow-card p-5 text-center">
-            <div className="w-8 h-8 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
+            <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
             <p className="text-gray-500 text-sm">Connecting to live tracking…</p>
           </div>
         )}
 
-        {/* ── Stop timeline ──────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-50">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Route Stops</p>
-          </div>
-
-          <div className="px-4 py-2">
-            {displayStops.map((stop, i) => {
-              const isFirst   = i === 0;
-              const isLast    = i === displayStops.length - 1;
-              const isFromStop = stop.id === 'from' || stop.name === fromName;
-              const isToStop  = stop.id === 'to'   || stop.name === toName;
-              const isBusHere = busStopIndex === i;
-              const busPassed = busStopIndex !== null && i < busStopIndex;
-
-              return (
-                <div key={stop.id} className="flex gap-3 relative">
-                  {/* Timeline spine */}
-                  <div className="flex flex-col items-center flex-shrink-0 w-5">
-                    {/* dot */}
-                    <div className={`w-3 h-3 rounded-full border-2 mt-3 z-10 flex-shrink-0 ${
-                      isFromStop || isToStop
-                        ? 'border-primary-500 bg-primary-500'
-                        : busPassed
-                        ? 'border-gray-300 bg-gray-300'
-                        : 'border-gray-300 bg-white'
-                    }`} />
-                    {/* line below */}
-                    {!isLast && (
-                      <div className={`flex-1 w-0.5 min-h-[28px] ${
-                        busPassed ? 'bg-gray-200' : 'bg-gray-200'
-                      }`} />
-                    )}
-                  </div>
-
-                  {/* Bus marker floating between stops */}
-                  {isBusHere && nearestBus && (
-                    <div className="absolute left-0 -translate-x-0.5 z-20" style={{ top: '2.2rem' }}>
-                      <div className="w-5 h-5 bg-primary-600 rounded-full border-2 border-white shadow-md flex items-center justify-center text-[10px]">
-                        🚌
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Stop label */}
-                  <div className={`flex-1 py-2.5 ${!isLast ? 'border-b border-gray-50' : ''}`}>
-                    <p className={`text-sm ${
-                      isFromStop || isToStop ? 'font-semibold text-gray-900' : 'text-gray-700'
-                    } ${busPassed ? 'text-gray-400' : ''}`}>
-                      {stop.name}
-                      {isFromStop && <span className="ml-1.5 text-[10px] font-normal text-primary-500 bg-primary-50 px-1.5 py-0.5 rounded-full">Your stop</span>}
-                      {isToStop   && <span className="ml-1.5 text-[10px] font-normal text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">Destination</span>}
-                    </p>
-                    {stop.nameSi && (
-                      <p className="text-xs text-gray-400 font-sinhala">{stop.nameSi}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* If only from/to, show note about partial data */}
-            {displayStops.length === 2 && (
-              <p className="text-[10px] text-gray-300 pb-2 pl-8">
-                Full stop list not yet available for this route
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* ── Multiple buses ─────────────────────────────────────────────── */}
-        {buses.length > 1 && (
-          <div className="bg-white rounded-2xl shadow-card p-4 space-y-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-              {buses.length} buses on this route
+        {/* ── Bus cards (one per live bus, sorted by distance) ───────────── */}
+        {sorted.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide px-1">
+              Buses approaching your stop
             </p>
-            {buses.map((b) => {
-              const d = haversineKm(b.lat, b.lng, fromLat, fromLng);
-              return (
-                <div key={b.vehicleId} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">🚌 {b.vehicleId}</span>
-                  <span className="text-gray-500">
-                    {d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`} away
-                  </span>
-                </div>
-              );
-            })}
+            {sorted.map((bus, i) => (
+              <BusCard
+                key={bus.vehicleId}
+                bus={bus}
+                distKm={haversineKm(bus.lat, bus.lng, fromLat, fromLng)}
+                isNearest={i === 0}
+                fromLat={fromLat} fromLng={fromLng}
+                toLat={toLat}     toLng={toLng}
+                routeStops={routeStops}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ── Stop timeline ─────────────────────────────────────────────── */}
+        <StopTimeline
+          stops={routeStops}
+          fromName={fromName}
+          toName={toName}
+          buses={busArray}
+        />
+
+        {/* Fallback if no route stops in DB */}
+        {routeStops.length === 0 && (
+          <div className="bg-white rounded-2xl shadow-card p-4 flex items-center gap-4">
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-primary-500" />
+              <div className="w-0.5 h-10 bg-gray-200" />
+              <div className="w-3 h-3 rounded-full border-2 border-gray-400" />
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-gray-900">
+                {fromName}
+                <span className="ml-1.5 text-[10px] font-normal text-primary-500 bg-primary-50 px-1.5 py-0.5 rounded-full">Your stop</span>
+              </p>
+              <p className="text-sm text-gray-600">{toName}</p>
+            </div>
           </div>
         )}
       </div>
