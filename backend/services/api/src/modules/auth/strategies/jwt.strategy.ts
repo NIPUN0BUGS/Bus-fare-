@@ -4,6 +4,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { UserStatus } from '@buslanka/shared-types';
 import { UserEntity } from '../entities/user.entity';
 
@@ -21,10 +23,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @InjectRepository(UserEntity)
     private userRepo: Repository<UserEntity>,
   ) {
+    const publicPath = resolve(process.cwd(), config.get<string>('JWT_PUBLIC_KEY_PATH', './secrets/jwt-public.pem'));
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_PUBLIC_KEY'),
+      secretOrKey: readFileSync(publicPath, 'utf8'),
       algorithms: ['RS256'],
     });
   }
