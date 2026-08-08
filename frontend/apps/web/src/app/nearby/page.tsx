@@ -9,11 +9,15 @@ interface Stop {
   id: string;
   name: string;
   nameSi?: string | null;
+  name_si?: string | null;
   nameTa?: string | null;
+  name_ta?: string | null;
   lat: number;
   lng: number;
   stopCode?: string | null;
+  stop_code?: string | null;
   distanceMeters?: number;
+  distance_meters?: number;
 }
 
 type State =
@@ -22,10 +26,15 @@ type State =
   | { phase: 'done'; stops: Stop[]; lat: number; lng: number }
   | { phase: 'error'; message: string };
 
-function distanceLabel(m?: number) {
+function distanceLabel(stop: Stop) {
+  const m = stop.distanceMeters ?? stop.distance_meters;
   if (!m) return '';
   return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 }
+
+function stopName(stop: Stop) { return stop.name; }
+function stopNameSi(stop: Stop) { return stop.nameSi ?? stop.name_si; }
+function stopCode(stop: Stop) { return stop.stopCode ?? stop.stop_code; }
 
 export default function NearbyPage() {
   const [state, setState] = useState<State>({ phase: 'requesting' });
@@ -134,17 +143,17 @@ export default function NearbyPage() {
                       <span className="text-xl">🚏</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{stop.name}</p>
-                      {stop.nameSi && (
-                        <p className="text-xs text-gray-400 font-sinhala truncate">{stop.nameSi}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{stopName(stop)}</p>
+                      {stopNameSi(stop) && (
+                        <p className="text-xs text-gray-400 font-sinhala truncate">{stopNameSi(stop)}</p>
                       )}
-                      {stop.stopCode && (
-                        <p className="text-xs text-gray-300 mt-0.5">{stop.stopCode}</p>
+                      {stopCode(stop) && (
+                        <p className="text-xs text-gray-300 mt-0.5">{stopCode(stop)}</p>
                       )}
                     </div>
-                    {stop.distanceMeters !== undefined && (
+                    {distanceLabel(stop) && (
                       <span className="text-xs font-medium text-primary-600 flex-shrink-0">
-                        {distanceLabel(stop.distanceMeters)}
+                        {distanceLabel(stop)}
                       </span>
                     )}
                   </div>

@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, ParseFloatPipe, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { SearchService } from './search.service';
 import { PassengerType, BusCategory } from '@buslanka/shared-types';
@@ -45,11 +45,11 @@ export class SearchController {
   @Get('stops/nearby')
   @ApiOperation({ summary: 'Find bus stops near a coordinate' })
   nearbyStops(
-    @Query('lat') lat: number,
-    @Query('lng') lng: number,
-    @Query('radiusMeters') radiusMeters = 500,
-    @Query('page') page = 1,
-    @Query('perPage') perPage = 20,
+    @Query('lat', ParseFloatPipe) lat: number,
+    @Query('lng', ParseFloatPipe) lng: number,
+    @Query('radiusMeters', new DefaultValuePipe(500), ParseFloatPipe) radiusMeters: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('perPage', new DefaultValuePipe(20), ParseIntPipe) perPage: number,
   ) {
     return this.searchService.nearbyStops(lat, lng, radiusMeters, page, perPage);
   }
@@ -59,9 +59,14 @@ export class SearchController {
   autocomplete(
     @Query('q') q: string,
     @Query('locale') locale = 'en',
-    @Query('lat') lat?: number,
-    @Query('lng') lng?: number,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
   ) {
-    return this.searchService.autocomplete(q, locale, lat, lng);
+    return this.searchService.autocomplete(
+      q,
+      locale,
+      lat !== undefined ? parseFloat(lat) : undefined,
+      lng !== undefined ? parseFloat(lng) : undefined,
+    );
   }
 }

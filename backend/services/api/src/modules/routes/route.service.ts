@@ -36,10 +36,9 @@ export class RouteService {
   }
 
   async findNearbyStops(lat: number, lng: number, radiusMeters: number, page: number, perPage: number) {
-    // PostGIS query — raw SQL since TypeORM doesn't wrap PostGIS functions
     const offset = (page - 1) * perPage;
-    return this.stopRepo.query(
-      `SELECT *,
+    const rows = await this.stopRepo.query(
+      `SELECT id, stop_code, name, name_si, name_ta, lat, lng, is_terminus, has_shelter, wheelchair_accessible, status,
         ST_Distance(
           ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
           ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
@@ -55,6 +54,21 @@ export class RouteService {
        ORDER BY distance_meters ASC
        LIMIT $4 OFFSET $5`,
       [lat, lng, radiusMeters, perPage, offset],
-    );
+    ) as Array<{ id: string; stop_code: string | null; name: string; name_si: string | null; name_ta: string | null; lat: number; lng: number; is_terminus: boolean; has_shelter: boolean; wheelchair_accessible: boolean; status: string; distance_meters: number }>;
+
+    return rows.map((r) => ({
+      id: r.id,
+      stopCode: r.stop_code,
+      name: r.name,
+      nameSi: r.name_si,
+      nameTa: r.name_ta,
+      lat: r.lat,
+      lng: r.lng,
+      isTerminus: r.is_terminus,
+      hasShelter: r.has_shelter,
+      wheelchairAccessible: r.wheelchair_accessible,
+      status: r.status,
+      distanceMeters: parseFloat(r.distance_meters as unknown as string),
+    }));
   }
 }

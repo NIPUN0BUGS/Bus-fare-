@@ -451,7 +451,6 @@ export class InitialSchema1722297600000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE INDEX idx_fare_rules_lookup
         ON fare_rules(route_id, bus_category, stage_from, stage_to, passenger_type)
-        WHERE effective_to IS NULL OR effective_to > now()
     `);
 
     // ── Schedules and Trips ──────────────────────────────────────────────────

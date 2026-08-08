@@ -153,8 +153,8 @@ export class SearchService {
 
   private async resolveStop(text?: string, lat?: number, lng?: number) {
     if (lat !== undefined && lng !== undefined) {
-      const results = await this.routeService.findNearbyStops(lat, lng, 300, 1, 1) as BusStopEntity[];
-      return results[0] ?? null;
+      const results = await this.routeService.findNearbyStops(lat, lng, 300, 1, 1);
+      return (results[0] as BusStopEntity | undefined) ?? null;
     }
     if (text) {
       return this.stopRepo
