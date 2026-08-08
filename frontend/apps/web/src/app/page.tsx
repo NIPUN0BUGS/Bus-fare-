@@ -40,6 +40,22 @@ export default function HomePage() {
           <span className="text-2xl" role="img" aria-hidden="true">🎟</span>
           <span className="font-medium text-sm">My Bookings</span>
         </a>
+        <a
+          href="/map"
+          className="col-span-2 flex items-center gap-3 bg-white/10 hover:bg-white/20 backdrop-blur
+                     text-white rounded-xl p-4 transition-colors"
+          aria-label="Live bus map"
+        >
+          <span className="text-2xl" role="img" aria-hidden="true">🗺️</span>
+          <div>
+            <span className="font-medium text-sm block">Live Bus Map</span>
+            <span className="text-primary-200 text-xs">Track buses in real time</span>
+          </div>
+          <span className="ml-auto flex items-center gap-1 text-xs font-semibold bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            LIVE
+          </span>
+        </a>
       </section>
     </main>
   );

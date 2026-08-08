@@ -6,6 +6,17 @@ import { BusStopEntity } from '../routes/entities/bus-stop.entity';
 import { RouteService } from '../routes/route.service';
 import { FareService } from '../fares/fare.service';
 
+interface ResolvedStop {
+  id: string;
+  name: string;
+  nameSi: string | null;
+  nameTa: string | null;
+  lat: number;
+  lng: number;
+  stopCode: string | null;
+  wheelchairAccessible: boolean;
+}
+
 interface JourneySearchInput {
   fromText?: string;
   toText?: string;
@@ -151,18 +162,29 @@ export class SearchService {
     };
   }
 
-  private async resolveStop(text?: string, lat?: number, lng?: number) {
+  private async resolveStop(text?: string, lat?: number, lng?: number): Promise<ResolvedStop | null> {
     if (lat !== undefined && lng !== undefined) {
       const results = await this.routeService.findNearbyStops(lat, lng, 300, 1, 1);
-      return (results[0] as BusStopEntity | undefined) ?? null;
+      return (results[0] as ResolvedStop | undefined) ?? null;
     }
     if (text) {
-      return this.stopRepo
+      const entity = await this.stopRepo
         .createQueryBuilder('s')
         .where(`to_tsvector('simple', coalesce(s.name,'') || ' ' || coalesce(s.name_si,'') || ' ' || coalesce(s.name_ta,'')) @@ plainto_tsquery('simple', :q)`, { q: text })
         .andWhere(`s.status = 'ACTIVE'`)
         .andWhere('s.deleted_at IS NULL')
         .getOne();
+      if (!entity) return null;
+      return {
+        id: entity.id,
+        name: entity.name,
+        nameSi: entity.nameSi ?? null,
+        nameTa: entity.nameTa ?? null,
+        lat: entity.lat,
+        lng: entity.lng,
+        stopCode: entity.stopCode ?? null,
+        wheelchairAccessible: entity.wheelchairAccessible ?? false,
+      };
     }
     return null;
   }

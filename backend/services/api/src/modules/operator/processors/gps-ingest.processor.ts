@@ -5,11 +5,13 @@ import { Repository } from 'typeorm';
 import { Job } from 'bull';
 import { OccupancyLevel } from '@buslanka/shared-types';
 import { TrackingGateway } from '../../tracking/tracking.gateway';
+import { TrackingService } from '../../tracking/tracking.service';
 import { OperatorEntity } from '../entities/operator.entity';
 
 interface GpsJob {
   vehicleId: string;
   operatorId: string;
+  routeId?: string;
   tripId?: string;
   lat: number;
   lng: number;
@@ -20,6 +22,7 @@ interface GpsJob {
 }
 
 const VALID_OCCUPANCY = new Set<string>(Object.values(OccupancyLevel));
+const SRI_LANKA_BOUNDS = { minLat: 5.9, maxLat: 9.9, minLng: 79.4, maxLng: 81.9 };
 
 @Processor('gps.ingest')
 export class GpsIngestProcessor {
@@ -27,30 +30,18 @@ export class GpsIngestProcessor {
 
   constructor(
     private readonly trackingGateway: TrackingGateway,
+    private readonly trackingService: TrackingService,
     @InjectRepository(OperatorEntity)
     private readonly operatorRepo: Repository<OperatorEntity>,
   ) {}
 
   @Process('ingest')
   async handleIngest(job: Job<GpsJob>) {
-    const {
-      vehicleId,
-      operatorId,
-      tripId,
-      lat,
-      lng,
-      heading,
-      speedKmh,
-      occupancy,
-      timestamp,
-    } = job.data;
+    const { vehicleId, routeId, tripId, lat, lng, heading, speedKmh, occupancy, timestamp } = job.data;
 
-    // Resolve which route(s) this vehicle is currently serving so we can
-    // broadcast to the correct Socket.IO rooms.
-    const routeIds = await this.resolveRouteIds(vehicleId, operatorId, tripId);
-
-    if (routeIds.length === 0) {
-      this.logger.debug(`No active route found for vehicle ${vehicleId} — position buffered but not broadcast`);
+    if (lat < SRI_LANKA_BOUNDS.minLat || lat > SRI_LANKA_BOUNDS.maxLat ||
+        lng < SRI_LANKA_BOUNDS.minLng || lng > SRI_LANKA_BOUNDS.maxLng) {
+      this.logger.warn(`Vehicle ${vehicleId} GPS out of Sri Lanka bounds (${lat}, ${lng}) — dropped`);
       return;
     }
 
@@ -58,40 +49,31 @@ export class GpsIngestProcessor {
       ? (occupancy as OccupancyLevel)
       : undefined;
 
-    const position = {
-      vehicleId,
-      tripId,
+    const updatedAt = new Date(timestamp);
+
+    // Update in-memory live state
+    this.trackingService.updateVehicleLocation(vehicleId, routeId ?? null, {
       lat,
       lng,
       heading: heading ?? null,
       speedKmh: speedKmh ?? null,
       occupancy: normalizedOccupancy ?? null,
-      receivedAt: timestamp,
-      broadcastAt: new Date().toISOString(),
-    };
+      updatedAt,
+    });
 
-    for (const routeId of routeIds) {
-      this.trackingGateway.broadcastVehiclePosition(routeId, position);
-    }
+    // Broadcast to subscribers
+    this.trackingGateway.broadcastVehiclePosition(routeId ?? null, {
+      vehicleId,
+      routeId: routeId ?? null,
+      tripId: tripId ?? null,
+      lat,
+      lng,
+      heading: heading ?? null,
+      speedKmh: speedKmh ?? null,
+      occupancy: normalizedOccupancy ?? null,
+      updatedAt: updatedAt.toISOString(),
+    });
 
-    this.logger.debug(
-      `Vehicle ${vehicleId} position broadcast to ${routeIds.length} route room(s) at (${lat}, ${lng})`,
-    );
-  }
-
-  /**
-   * In Phase 2, this will query the `trips` and `vehicle_assignments` tables
-   * to find active trips for this vehicle. For now it returns an empty array
-   * so the system is safe but silent until trip management is implemented.
-   */
-  private async resolveRouteIds(
-    vehicleId: string,
-    operatorId: string,
-    tripId?: string,
-  ): Promise<string[]> {
-    void vehicleId;
-    void operatorId;
-    void tripId;
-    return [];
+    this.logger.debug(`Vehicle ${vehicleId} @ (${lat}, ${lng}) route=${routeId ?? 'none'}`);
   }
 }

@@ -7,30 +7,37 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { TrackingService } from './tracking.service';
 
 @WebSocketGateway({ namespace: '/v1/ws/tracking', cors: { origin: '*' } })
 export class TrackingGateway implements OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private subscriptions = new Map<string, Set<string>>();
+  constructor(private readonly trackingService: TrackingService) {}
 
   @SubscribeMessage('SUBSCRIBE')
   handleSubscribe(
-    @MessageBody() data: { routeId: string; tripId?: string },
+    @MessageBody() data: { routeId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const key = data.routeId;
-    if (!this.subscriptions.has(key)) this.subscriptions.set(key, new Set());
-    this.subscriptions.get(key)?.add(client.id);
-    void client.join(`route:${key}`);
+    void client.join(`route:${data.routeId}`);
 
-    // Immediately send current status (may be unavailable in Phase 0)
-    client.emit('TRACKING_UNAVAILABLE', {
-      type: 'TRACKING_UNAVAILABLE',
-      reason: 'GPS_STREAM_NOT_YET_CONFIGURED',
-      message: 'Live tracking is currently unavailable. Schedule-based estimates are being shown.',
-    });
+    // Flush current positions for this route immediately
+    const state = this.trackingService.getVehiclesOnRoute(data.routeId);
+    for (const v of state.vehicles) {
+      client.emit('VEHICLE_POSITION', { type: 'VEHICLE_POSITION', ...v });
+    }
+  }
+
+  @SubscribeMessage('SUBSCRIBE_ALL')
+  handleSubscribeAll(@ConnectedSocket() client: Socket) {
+    void client.join('all');
+
+    // Flush all current live positions immediately
+    for (const v of this.trackingService.getAllVehicles()) {
+      client.emit('VEHICLE_POSITION', { type: 'VEHICLE_POSITION', ...v });
+    }
   }
 
   @SubscribeMessage('UNSUBSCRIBE')
@@ -38,27 +45,24 @@ export class TrackingGateway implements OnGatewayDisconnect {
     @MessageBody() data: { routeId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.subscriptions.get(data.routeId)?.delete(client.id);
     void client.leave(`route:${data.routeId}`);
   }
 
-  handleDisconnect(client: Socket) {
-    for (const [, clients] of this.subscriptions) {
-      clients.delete(client.id);
-    }
+  handleDisconnect(_client: Socket) {
+    // Socket.io cleans up room memberships on disconnect automatically
   }
 
-  broadcastVehiclePosition(routeId: string, position: Record<string, unknown>) {
-    this.server.to(`route:${routeId}`).emit('VEHICLE_POSITION', {
-      type: 'VEHICLE_POSITION',
-      ...position,
-    });
+  broadcastVehiclePosition(routeId: string | null, position: Record<string, unknown>) {
+    const msg = { type: 'VEHICLE_POSITION', ...position };
+    if (routeId) {
+      this.server.to(`route:${routeId}`).emit('VEHICLE_POSITION', msg);
+    }
+    this.server.to('all').emit('VEHICLE_POSITION', msg);
   }
 
   broadcastAlert(routeId: string, alert: Record<string, unknown>) {
-    this.server.to(`route:${routeId}`).emit('SERVICE_ALERT', {
-      type: 'SERVICE_ALERT',
-      ...alert,
-    });
+    const msg = { type: 'SERVICE_ALERT', ...alert };
+    this.server.to(`route:${routeId}`).emit('SERVICE_ALERT', msg);
+    this.server.to('all').emit('SERVICE_ALERT', msg);
   }
 }

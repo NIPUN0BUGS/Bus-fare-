@@ -20,7 +20,7 @@ export class OperatorService {
 
   async ingestGps(
     vehicleId: string,
-    payload: { tripId?: string; lat: number; lng: number; heading?: number; speedKmh?: number; occupancy?: string; timestamp: string },
+    payload: { routeId?: string; tripId?: string; lat: number; lng: number; heading?: number; speedKmh?: number; occupancy?: string; timestamp: string },
     apiKey: string,
   ) {
     const operator = await this.resolveOperatorFromApiKey(apiKey);

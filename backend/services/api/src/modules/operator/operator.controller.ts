@@ -13,7 +13,7 @@ export class OperatorController {
   submitLocation(
     @Param('vehicleId') vehicleId: string,
     @Body() body: {
-      tripId?: string; lat: number; lng: number;
+      routeId?: string; tripId?: string; lat: number; lng: number;
       heading?: number; speedKmh?: number; occupancy?: string; timestamp: string;
     },
     @Headers('x-api-key') apiKey: string,
